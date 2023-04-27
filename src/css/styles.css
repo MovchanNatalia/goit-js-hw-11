@@ -116,10 +116,9 @@ button:hover {
 
 .info {
   border-radius: 0 0 5px 5px;
+  color: white;
   background-color: orange;
   border-radius: 10px;
-  
-  
   text-align: center;
   
 }
