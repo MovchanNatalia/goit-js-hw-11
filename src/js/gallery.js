@@ -9,6 +9,8 @@ const refs = {
   formEl: document.querySelector('.search-form'),
 };
 
+let totalPictures = 0;
+
 const pixabayApiService = new PixabayApiService();
 const loadMoreBtn = new LoadMoreBtn({
   selector: '#loadMore',
@@ -26,26 +28,41 @@ loadMoreBtn.button.addEventListener('click', fetchPhotos);
 function onSearchSubmit(e) {
   e.preventDefault();
   loadMoreBtn.show();
-
   const form = e.currentTarget;
   pixabayApiService.query = form.elements.searchQuery.value.trim();
+  if (form.elements.searchQuery.value.trim() === '') {
+    Notify.failure('It cannot be empty field');
+    loadMoreBtn.hide();
+    return;
+  }
+  pixabayApiService.form;
   pixabayApiService.resetPage();
   clearPhotosList();
-  fetchPhotos().finally(() => form.reset());
+  fetchPhotos().finally(() => {
+    if (totalPictures != 0) {
+      Notify.success(`Hooray we found ${totalPictures} images.`);
+      return;
+    }
+    form.reset();
+  });
 }
 
 async function fetchPhotos() {
   loadMoreBtn.disable();
   try {
-    if (pixabayApiService.query === '') {
-      Notify.failure('It cannot be empty field');
-      loadMoreBtn.hide();
-      return;
-    }
-
     const markup = await getPhotosMarkup();
     updatePhotosList(markup);
     loadMoreBtn.enable();
+
+    let currentPage = pixabayApiService.currentPage;
+    let totalPages = pixabayApiService.allPages;
+
+    if (currentPage > totalPages) {
+      loadMoreBtn.hide();
+      return Notify.failure(
+        "We're sorry, but you've reached the end of search results."
+      );
+    }
   } catch (err) {
     onError(err);
   }
@@ -53,21 +70,17 @@ async function fetchPhotos() {
 
 async function getPhotosMarkup() {
   try {
-    const { hits } = await pixabayApiService.getPhotos();
+    const { hits, totalHits } = await pixabayApiService.getPhotos();
+
     if (hits.length === 0) {
       Notify.failure(
         'Sorry, there are no images matching your search query. Please try again.'
       );
       loadMoreBtn.hide();
-      return;
     }
-    if (hits.length !== 40) {
-      Notify.failure(
-        "We're sorry, but you've reached the end of search results."
-      );
-      loadMoreBtn.hide();
-      return;
-    }
+
+    totalPictures = totalHits;
+
     return hits.reduce((markup, hit) => markup + createMarkup(hit), '');
   } catch (err) {
     onError(err);
@@ -110,7 +123,6 @@ function updatePhotosList(markup) {
     return loadMoreBtn.hide();
   }
   if (markup !== undefined) refs.divEl.insertAdjacentHTML('beforeend', markup);
-
   gallerySimpleLightbox.refresh();
 }
 
